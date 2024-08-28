@@ -2,10 +2,12 @@ package repositories
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/pk-anderson/go-chat/models"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
@@ -39,6 +41,27 @@ func (r *UserRepository) ListUsers() ([]models.User, error) {
 	}
 
 	return users, nil
+}
+
+func (r *UserRepository) FindByID(id string) (*models.User, error) {
+	var user models.User
+
+	objectID, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		return nil, errors.New("invalid ID format")
+	}
+
+	filter := bson.M{"_id": objectID}
+
+	err = r.collection.FindOne(context.TODO(), filter).Decode(&user)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return nil, errors.New("user not found")
+		}
+		return nil, err
+	}
+
+	return &user, nil
 }
 
 func NewUserRepository(client *mongo.Client, dbName, collectionName string) *UserRepository {

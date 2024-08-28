@@ -13,6 +13,7 @@ func main() {
 	config.ConnectMongoDB("mongodb://localhost:27017")
 
 	router := mux.NewRouter()
+
 	routes.StartUserRoutes(router, config.MongoClient)
 
 	log.Println("Server is running on port 8080")

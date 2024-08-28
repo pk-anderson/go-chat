@@ -1,6 +1,11 @@
 package services
 
 import (
+	"errors"
+	"time"
+
+	"github.com/golang-jwt/jwt"
+	"github.com/pk-anderson/go-chat/config"
 	"github.com/pk-anderson/go-chat/models"
 	"github.com/pk-anderson/go-chat/repositories"
 	"github.com/pk-anderson/go-chat/utils"
@@ -8,7 +13,8 @@ import (
 )
 
 type UserService struct {
-	repo *repositories.UserRepository
+	repo     *repositories.UserRepository
+	authRepo *repositories.AuthTokenRepository
 }
 
 func (s *UserService) CreateUser(username, password string) (*models.User, error) {
@@ -32,6 +38,36 @@ func (s *UserService) CreateUser(username, password string) (*models.User, error
 	return &user, nil
 }
 
+func (s *UserService) Authenticate(id, password string) (string, error) {
+	user, err := s.repo.FindByID(id)
+	if err != nil {
+		return "", err
+	}
+
+	if !utils.CheckPasswordHash(password, user.Password) {
+		return "", errors.New("invalid credentials")
+	}
+
+	token := jwt.New(jwt.SigningMethodHS256)
+	expiresAt := time.Now().Add(time.Hour * 72).Unix()
+	claims := token.Claims.(jwt.MapClaims)
+	claims["id"] = user.ID
+	claims["exp"] = expiresAt
+
+	t, err := token.SignedString([]byte(config.JWTSecretKey))
+	if err != nil {
+		return "", err
+	}
+
+	s.authRepo.CreateToken(models.AuthToken{
+		Token:     t,
+		UserID:    id,
+		ExpiresAt: expiresAt,
+	})
+
+	return t, nil
+}
+
 func (s *UserService) ListUsers() ([]models.User, error) {
 	users, err := s.repo.ListUsers()
 	if err != nil {
@@ -40,6 +76,9 @@ func (s *UserService) ListUsers() ([]models.User, error) {
 	return users, nil
 }
 
-func NewUserService(repo *repositories.UserRepository) *UserService {
-	return &UserService{repo: repo}
+func NewUserService(repo *repositories.UserRepository, authRepo *repositories.AuthTokenRepository) *UserService {
+	return &UserService{
+		repo:     repo,
+		authRepo: authRepo,
+	}
 }

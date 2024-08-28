@@ -12,9 +12,11 @@ import (
 
 func StartUserRoutes(router *mux.Router, mongoClient *mongo.Client) {
 	userRepo := repositories.NewUserRepository(mongoClient, "chat_db", "users")
-	userService := services.NewUserService(userRepo)
+	authRepo := repositories.NewAuthTokenRepository(mongoClient, "chat_db", "tokens")
+	userService := services.NewUserService(userRepo, authRepo)
 	userHandler := handlers.NewUserHandler(userService)
 
 	router.HandleFunc("/user/create", userHandler.CreateUser).Methods(http.MethodPost)
+	router.HandleFunc("/user/authenticate", userHandler.Authenticate).Methods(http.MethodPost)
 	router.HandleFunc("/user/list", userHandler.ListUsers).Methods(http.MethodGet)
 }

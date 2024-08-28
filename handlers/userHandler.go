@@ -32,6 +32,27 @@ func (h *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(user)
 }
 
+func (h *UserHandler) Authenticate(w http.ResponseWriter, r *http.Request) {
+	var requestBody struct {
+		ID       string `json:"id"`
+		Password string `json:"password"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&requestBody); err != nil {
+		http.Error(w, "Invalid request payload", http.StatusBadRequest)
+		return
+	}
+
+	token, err := h.service.Authenticate(requestBody.ID, requestBody.Password)
+	if err != nil {
+		http.Error(w, "Authentication failed", http.StatusUnauthorized)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{"token": token})
+}
+
 func (h *UserHandler) ListUsers(w http.ResponseWriter, r *http.Request) {
 	users, err := h.service.ListUsers()
 	if err != nil {
